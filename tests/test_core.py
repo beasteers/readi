@@ -37,6 +37,7 @@ def test_gather():
     assert col.gather() == [{'i': 1}, {'i': 2}]
     assert col.gather(a=5) == [{'i': 1, 'a': 5}, {'i': 2, 'a': 5}]
     assert col.gather(asdf1=False, a=5, b=6) == [{'i': 1, 'a': 5, 'b': 6}]
+    assert col.gather('asdf', a=5) == [{'i': 1, 'a': 5}]
 
 
 def test_subclass():
@@ -102,3 +103,20 @@ def test_function_wrap():
         return x * 2
 
     assert set(f() for f in col.gather(x=9)) == {9, 18}
+
+def test_variants():
+    col = readi.Collection()
+
+    @col.register
+    def a(**kw):
+        return {**kw}
+
+    assert col.gather() == [{}]
+    col.register_variant('a', x=7)
+    assert set(col) == {'a'}
+
+    col.register_variant('a', 'b', x=8)
+    assert set(col) == {'a', 'b'}
+
+    assert col.gather() == [{'x': 7}, {'x': 8}]
+    assert col.gather(x=9) == [{'x': 9}, {'x': 9}]

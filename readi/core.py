@@ -4,9 +4,11 @@ import pkg_resources
 
 class Collection(dict):
     def __init__(self, entrypoints=None):
+        self._presets = {}
         self._sublcs_parents = {}
         self.entrypoints = entrypoints
         self.register_entrypoints()
+        super().__init__()
 
     def get_name(self, child):
         '''Retrieve the name of the processor.'''
@@ -14,11 +16,13 @@ class Collection(dict):
 
     def is_enabled(self, child):
         '''Determine if a processor should be considered enabled or not.'''
-        return getattr(child, 'enabled', True)
+        return child is not None and getattr(child, 'enabled', True)
 
-    def _get_from_kw(self, child, prockw=None, **kw):
+    def _init_with_kw(self, name, prockw=None, **kw):
         '''Instantiate processor unless disabled by keyword arg (`{name}=False`).'''
-        return child(**mergedicts(kw, prockw)) if prockw is not False else None
+        return (
+            self[name](**mergedicts(self._presets.get(name), kw, prockw))
+            if prockw is not False else None)
 
     def register(self, child, name=None):
         '''Register a processor.'''
@@ -51,17 +55,28 @@ class Collection(dict):
             for entry_point in pkg_resources.iter_entry_points(name):
                 self[entry_point.name] = entry_point.load()
 
+    def register_variant(self, source, name=None, **kw):
+        '''Register a source alias with an alternate name and additional kw params.'''
+        if name:
+            # NOTE: lambda so that name will use the latest version of self[source]
+            self[name] = lambda *a, **kw: self[source](*a, **kw)
+
+        name = name or source
+        if name not in self._presets:
+            self._presets[name] = {}
+        self._presets[name].update(kw)
+
     def gather(self, *keys, **kw):
         '''Gather processors dependent on keyword args.'''
         keys = keys or self.keys()
         # filter out args with the names of processors - those are specific args.
-        childkw = {id: kw.pop(id, None) for id in self}
+        childkw = {k: kw.pop(k, None) for k in keys}
         # filter out disabled processors - maay need to be instantiated first.
-        children = (self._get_from_kw(p, childkw[k], **kw) for k, p in self.items())
-        return [p for p in children if p and self.is_enabled(p)]
+        children = (self._init_with_kw(k, childkw[k], **kw) for k in keys)
+        return [p for p in children if p is not None and self.is_enabled(p)]
 
     def getone(self, key, **kw):
-        return self._get_from_kw(self[key], **kw)
+        return self._init_with_kw(key, **kw)
 
 
 def mergedicts(*ds):

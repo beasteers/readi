@@ -5,7 +5,7 @@ NAME = 'readi'
 
 setuptools.setup(
     name=NAME,
-    version='0.0.3',
+    version='0.1.0',
     description='Dead simple class/function registration.',
     long_description=open('README.md').read().strip(),
     long_description_content_type='text/markdown',

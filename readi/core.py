@@ -73,7 +73,13 @@ class Collection(dict):
         childkw = {k: kw.pop(k, None) for k in keys}
         # filter out disabled processors - maay need to be instantiated first.
         children = (self._init_with_kw(k, childkw[k], **kw) for k in keys)
-        return [p for p in children if p is not None and self.is_enabled(p)]
+        return {
+            k: p for k, p in zip(keys, children)
+            if p is not None and self.is_enabled(p)
+        }
+
+    def gatheritems(self, *keys, **kw):
+        return list(self.gather(*keys, **kw).values())
 
     def getone(self, key, **kw):
         return self._init_with_kw(key, **kw)
